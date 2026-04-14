@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>CrowdSense — Smart Stadium Experience</title>
+  <meta name="description" content="Real-time stadium navigation: gate traffic, food stalls, washrooms, and friend finder.">
+  <meta name="theme-color" content="#0a0e14">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏟️</text></svg>">
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header class="app-header">
+    <div class="app-logo">
+      <svg viewBox="0 0 28 28" fill="none"><path d="M14 2C7.37 2 2 7.37 2 14s5.37 12 12 12 12-5.37 12-12S20.63 2 14 2zm0 22c-5.52 0-10-4.48-10-10S8.48 4 14 4s10 4.48 10 10-4.48 10-10 10z" fill="url(#g1)"/><path d="M14 7c-3.86 0-7 3.14-7 7s3.14 7 7 7 7-3.14 7-7-3.14-7-7-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z" fill="url(#g1)" opacity="0.6"/><circle cx="14" cy="14" r="2" fill="url(#g1)"/><defs><linearGradient id="g1" x1="2" y1="2" x2="26" y2="26"><stop stop-color="#81ecff"/><stop offset="1" stop-color="#00e3fd"/></linearGradient></defs></svg>
+      <span class="app-logo-text">CrowdSense</span>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      <span class="live-text">Live</span>
+    </div>
+  </header>
+
+  <!-- ═══════════ MAIN CONTENT ═══════════ -->
+  <main class="app-content">
+
+    <!-- ──────── GATES VIEW ──────── -->
+    <section id="gates-view" class="view active">
+      <div class="view-header">
+        <h1 class="view-title">Gate Traffic</h1>
+        <p class="view-subtitle">Smart entry — sorted by fastest wait</p>
+      </div>
+
+      <!-- Recommendation Hero -->
+      <div class="recommendation-card" id="rec-card">
+        <div class="rec-label"><div class="dot"></div><span>Recommended Entry</span></div>
+        <div class="rec-gate-name" id="rec-gate-name">—</div>
+        <div class="rec-wait">
+          <span class="rec-wait-number" id="rec-wait-num">—</span>
+          <span class="rec-wait-unit">min wait</span>
+        </div>
+        <p class="rec-reason" id="rec-reason">Calculating best route...</p>
+      </div>
+
+      <!-- Dashboard stats -->
+      <div class="dashboard-stats" id="gate-dashboard">
+        <div class="dash-stat">
+          <div class="dash-stat-value" id="dash-avg-wait" style="color:var(--primary)">—</div>
+          <div class="dash-stat-label">Avg Gate Wait</div>
+        </div>
+        <div class="dash-stat">
+          <div class="dash-stat-value" id="dash-total-queue" style="color:var(--tertiary)">—</div>
+          <div class="dash-stat-label">Total in Queue</div>
+        </div>
+      </div>
+
+      <!-- Stadium Map -->
+      <div class="stadium-map">
+        <div class="stadium-map-title">Stadium Overview</div>
+        <div class="map-container">
+          <svg class="map-svg" id="stadium-svg" viewBox="0 0 400 300">
+            <!-- Stadium outline -->
+            <ellipse cx="200" cy="150" rx="170" ry="120" fill="none" stroke="#20262f" stroke-width="2"/>
+            <ellipse cx="200" cy="150" rx="130" ry="85" fill="none" stroke="#1b2028" stroke-width="1.5"/>
+            <!-- Field -->
+            <ellipse cx="200" cy="150" rx="90" ry="55" fill="#0f141a" stroke="#1b2028" stroke-width="1"/>
+            <text x="200" y="154" text-anchor="middle" fill="#44484f" font-family="Space Grotesk, sans-serif" font-size="11" font-weight="600" letter-spacing="0.1em">FIELD</text>
+            <!-- Gate dots rendered by JS -->
+          </svg>
+        </div>
+      </div>
+
+      <!-- Gates Grid -->
+      <div class="gates-grid" id="gates-grid"></div>
+      <div class="last-updated" id="gates-timestamp"></div>
+    </section>
+
+    <!-- ──────── FOOD VIEW ──────── -->
+    <section id="food-view" class="view">
+      <div class="view-header">
+        <h1 class="view-title">Food & Drinks</h1>
+        <p class="view-subtitle">Ratings, crowd levels & wait times</p>
+      </div>
+
+      <div class="food-filters" id="food-filters">
+        <button class="filter-chip active" data-sort="rating">⭐ Top Rated</button>
+        <button class="filter-chip" data-sort="wait">⚡ Fastest</button>
+        <button class="filter-chip" data-sort="crowd">👥 Least Crowded</button>
+      </div>
+
+      <div class="food-list" id="food-list"></div>
+      <div class="last-updated" id="food-timestamp"></div>
+    </section>
+
+    <!-- ──────── WASHROOM VIEW ──────── -->
+    <section id="washrooms-view" class="view">
+      <div class="view-header">
+        <h1 class="view-title">Washrooms</h1>
+        <p class="view-subtitle">Real-time availability & wait times</p>
+      </div>
+
+      <div class="washroom-list" id="washroom-list"></div>
+      <div class="last-updated" id="washroom-timestamp"></div>
+    </section>
+
+    <!-- ──────── FRIENDS VIEW ──────── -->
+    <section id="friends-view" class="view">
+      <div class="view-header">
+        <h1 class="view-title">Find Friends</h1>
+        <p class="view-subtitle">Share your seat & find your crew</p>
+      </div>
+
+      <!-- Share Location -->
+      <div class="friends-section">
+        <div class="friends-section-title">Share Your Location</div>
+        <div class="share-form" id="share-form">
+          <div class="form-field">
+            <label class="form-label" for="friend-name">Your Name</label>
+            <input class="form-input" id="friend-name" type="text" placeholder="e.g. Samyak" maxlength="30">
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label" for="friend-zone">Zone</label>
+              <input class="form-input" id="friend-zone" type="text" placeholder="e.g. North Stand" maxlength="30">
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="friend-section">Section</label>
+              <input class="form-input" id="friend-section" type="text" placeholder="e.g. Section 204" maxlength="30">
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="friend-seat">Seat</label>
+            <input class="form-input" id="friend-seat" type="text" placeholder="e.g. Row F, Seat 12" maxlength="30">
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="friend-msg">Message (optional)</label>
+            <input class="form-input" id="friend-msg" type="text" placeholder="e.g. Near the burger stall!" maxlength="100">
+          </div>
+          <button class="btn-primary" id="share-btn" type="button">Share My Location</button>
+        </div>
+        <div id="code-result"></div>
+      </div>
+
+      <!-- Find Friend -->
+      <div class="friends-section">
+        <div class="friends-section-title">Find a Friend</div>
+        <div class="find-form">
+          <input class="form-input" id="find-code-input" type="text" placeholder="Enter 6-char code" maxlength="6">
+          <button class="btn-find" id="find-btn" type="button">Find</button>
+        </div>
+        <div id="friend-result"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════ BOTTOM NAV ═══════════ -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-view="gates-view" id="nav-gates">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>Gates</span>
+    </button>
+    <button class="nav-btn" data-view="food-view" id="nav-food">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      <span>Food</span>
+    </button>
+    <button class="nav-btn" data-view="washrooms-view" id="nav-washrooms">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7h6V5a3 3 0 0 0-3-3z"/><path d="M6 12H4a1 1 0 0 0-1 1v2a4 4 0 0 0 4 4h1v3h8v-3h1a4 4 0 0 0 4-4v-2a1 1 0 0 0-1-1h-2"/><rect x="8" y="12" width="8" height="4" rx="1"/></svg>
+      <span>WC</span>
+    </button>
+    <button class="nav-btn" data-view="friends-view" id="nav-friends">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Friends</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════ RATING MODAL ═══════════ -->
+<div class="modal-overlay" id="rating-modal">
+  <div class="modal">
+    <h3 class="modal-title" id="modal-stall-name">Rate this stall</h3>
+    <p class="modal-subtitle">Tap a star to rate</p>
+    <div class="star-rating" id="star-rating">
+      <button class="star-btn" data-star="1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+      <button class="star-btn" data-star="2"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+      <button class="star-btn" data-star="3"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+      <button class="star-btn" data-star="4"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+      <button class="star-btn" data-star="5"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn-primary" id="modal-submit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CrowdSense — Frontend Application
+// ============================================================
+
+const API = '';
+let currentView = 'gates-view';
+let foodSort = 'rating';
+let selectedRating = 0;
+let ratingStallId = null;
+
+// ── Navigation ──
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const view = btn.dataset.view;
+    switchView(view);
+  });
+});
+
+function switchView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+  document.getElementById(viewId).classList.add('active');
+  document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
+  currentView = viewId;
+
+  // Refresh data when switching
+  if (viewId === 'gates-view')     fetchGates();
+  if (viewId === 'food-view')      fetchFood();
+  if (viewId === 'washrooms-view') fetchWashrooms();
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  setTimeout(() => t.classList.remove('visible'), 2500);
+}
+
+// ── Time formatting ──
+function timeAgo(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const s = Math.floor((now - d) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  return `${Math.floor(s/60)}m ago`;
+}
+
+function formatWait(seconds) {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.ceil(seconds / 60);
+  return `${m}`;
+}
+
+// ============================================================
+// GATES
+// ============================================================
+
+async function fetchGates() {
+  try {
+    const res = await fetch(`${API}/api/gates`);
+    const data = await res.json();
+    renderGates(data);
+    renderStadiumMap(data.gates);
+  } catch (e) {
+    console.error('Gates fetch error:', e);
+  }
+}
+
+function renderGates(data) {
+  const { gates, recommended, timestamp } = data;
+
+  // Recommendation card
+  const waitMin = Math.ceil(recommended.estimatedWait / 60);
+  document.getElementById('rec-gate-name').textContent = recommended.name;
+  document.getElementById('rec-wait-num').textContent = waitMin;
+  document.getElementById('rec-reason').textContent = recommended.reason;
+
+  // Dashboard stats
+  const avgWait = Math.round(gates.reduce((s, g) => s + g.estimatedWait, 0) / gates.length);
+  const totalQ = gates.reduce((s, g) => s + g.currentQueue, 0);
+  document.getElementById('dash-avg-wait').textContent = `${Math.ceil(avgWait/60)}m`;
+  document.getElementById('dash-total-queue').textContent = totalQ;
+
+  // Gate cards — sorted by estimated wait
+  const sorted = [...gates].sort((a, b) => a.estimatedWait - b.estimatedWait);
+  const grid = document.getElementById('gates-grid');
+  grid.innerHTML = sorted.map(g => {
+    const isRec = g.id === recommended.id;
+    const waitMin = Math.ceil(g.estimatedWait / 60);
+    return `
+      <div class="gate-card status-${g.status} ${isRec ? 'recommended' : ''}">
+        <div class="gate-zone">${g.zone} Zone</div>
+        <div class="gate-name">${g.name}</div>
+        <div class="gate-wait">
+          <span class="gate-wait-num">${waitMin}</span>
+          <span class="gate-wait-unit">min</span>
+        </div>
+        <div class="gate-meta">
+          <span class="gate-queue">${g.currentQueue} in queue</span>
+          <span class="gate-lanes"><span>${g.openLanes}</span> lanes</span>
+        </div>
+        <div style="margin-top:8px">
+          <span class="status-badge ${g.status}">${g.status}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('gates-timestamp').textContent = `Updated ${timeAgo(timestamp)}`;
+}
+
+function renderStadiumMap(gates) {
+  const svg = document.getElementById('stadium-svg');
+  // Remove old gate dots
+  svg.querySelectorAll('.gate-dot-group').forEach(el => el.remove());
+
+  const gatePositions = {
+    'gate-n1': { x: 140, y: 32 },
+    'gate-n2': { x: 260, y: 32 },
+    'gate-e1': { x: 365, y: 110 },
+    'gate-e2': { x: 365, y: 190 },
+    'gate-s1': { x: 260, y: 268 },
+    'gate-s2': { x: 140, y: 268 },
+    'gate-w1': { x: 35, y: 110 },
+    'gate-w2': { x: 35, y: 190 },
+  };
+
+  const statusColors = {
+    low: '#2ff801',
+    moderate: '#81ecff',
+    high: '#ff7350',
+    critical: '#ff716c',
+  };
+
+  gates.forEach(g => {
+    const pos = gatePositions[g.id];
+    if (!pos) return;
+    const color = statusColors[g.status] || '#81ecff';
+    const waitMin = Math.ceil(g.estimatedWait / 60);
+
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.classList.add('gate-dot-group');
+
+    // Outer glow
+    const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    glow.setAttribute('cx', pos.x);
+    glow.setAttribute('cy', pos.y);
+    glow.setAttribute('r', '14');
+    glow.setAttribute('fill', color);
+    glow.setAttribute('opacity', '0.15');
+    group.appendChild(glow);
+
+    // Inner dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', pos.x);
+    dot.setAttribute('cy', pos.y);
+    dot.setAttribute('r', '6');
+    dot.setAttribute('fill', color);
+    group.appendChild(dot);
+
+    // Label
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', pos.x);
+    label.setAttribute('y', pos.y + 22);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('fill', '#a8abb3');
+    label.setAttribute('font-family', 'Manrope, sans-serif');
+    label.setAttribute('font-size', '8');
+    label.setAttribute('font-weight', '700');
+    label.setAttribute('letter-spacing', '0.05em');
+    label.textContent = `${waitMin}m`;
+    group.appendChild(label);
+
+    svg.appendChild(group);
+  });
+}
+
+// ============================================================
+// FOOD
+// ============================================================
+
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    foodSort = chip.dataset.sort;
+    fetchFood();
+  });
+});
+
+async function fetchFood() {
+  try {
+    const res = await fetch(`${API}/api/food?sort=${foodSort}`);
+    const data = await res.json();
+    renderFood(data);
+  } catch (e) {
+    console.error('Food fetch error:', e);
+  }
+}
+
+function renderFood(data) {
+  const { stalls, timestamp } = data;
+  const list = document.getElementById('food-list');
+
+  list.innerHTML = stalls.map(s => `
+    <div class="food-card" id="food-card-${s.id}">
+      <div class="food-card-header">
+        <div>
+          <div class="food-name">${s.name}</div>
+          <div class="food-category">${s.category} · ${s.zone} · ${s.priceRange}</div>
+        </div>
+        <div class="food-rating">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span class="food-rating-num">${s.rating}</span>
+          <span class="food-rating-count">(${s.totalRatings})</span>
+        </div>
+      </div>
+      <div class="food-meta">
+        <div class="food-meta-item crowd-${s.currentCrowd}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          ${capitalize(s.currentCrowd)} crowd
+        </div>
+        <div class="food-meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ~${s.estimatedWait} min
+        </div>
+      </div>
+      <div class="food-popular">
+        <span class="fire">🔥</span>
+        <span>Popular: ${s.popular}</span>
+      </div>
+      <div class="food-actions">
+        <button class="rate-btn" onclick="openRatingModal('${s.id}', '${escapeHtml(s.name)}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          Rate
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('food-timestamp').textContent = `Updated ${timeAgo(timestamp)}`;
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function escapeHtml(s) {
+  return s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ── Rating Modal ──
+function openRatingModal(stallId, stallName) {
+  ratingStallId = stallId;
+  selectedRating = 0;
+  document.getElementById('modal-stall-name').textContent = stallName;
+  document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('rating-modal').classList.add('active');
+}
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  document.getElementById('rating-modal').classList.remove('active');
+});
+
+document.getElementById('rating-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('rating-modal').classList.remove('active');
+  }
+});
+
+document.querySelectorAll('.star-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedRating = parseInt(btn.dataset.star);
+    document.querySelectorAll('.star-btn').forEach((b, i) => {
+      b.classList.toggle('active', i < selectedRating);
+    });
+  });
+});
+
+document.getElementById('modal-submit').addEventListener('click', async () => {
+  if (!selectedRating || !ratingStallId) return;
+  try {
+    const res = await fetch(`${API}/api/food/${ratingStallId}/rate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rating: selectedRating }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(`Rated ${selectedRating}★ — Thanks!`);
+      document.getElementById('rating-modal').classList.remove('active');
+      fetchFood();
+    }
+  } catch (e) {
+    showToast('Failed to submit rating');
+  }
+});
+
+// ============================================================
+// WASHROOMS
+// ============================================================
+
+async function fetchWashrooms() {
+  try {
+    const res = await fetch(`${API}/api/washrooms`);
+    const data = await res.json();
+    renderWashrooms(data);
+  } catch (e) {
+    console.error('Washrooms fetch error:', e);
+  }
+}
+
+function renderWashrooms(data) {
+  const { washrooms, timestamp } = data;
+  const list = document.getElementById('washroom-list');
+
+  list.innerHTML = washrooms.map(w => {
+    const occupancyPct = Math.round((w.occupiedStalls / w.totalStalls) * 100);
+    return `
+    <div class="washroom-card">
+      <div class="washroom-header">
+        <div>
+          <div class="washroom-name">${w.name}</div>
+          <div class="washroom-zone">${w.zone} Zone</div>
+        </div>
+        <span class="status-badge ${w.status}">${w.status}</span>
+      </div>
+      <div class="washroom-stats">
+        <div class="washroom-stat">
+          <div class="washroom-stat-value" style="color:${getStatusColor(w.status)}">${w.estimatedWait}</div>
+          <div class="washroom-stat-label">Min Wait</div>
+        </div>
+        <div class="washroom-stat">
+          <div class="washroom-stat-value">${w.currentQueue}</div>
+          <div class="washroom-stat-label">In Queue</div>
+        </div>
+        <div class="washroom-stat">
+          <div class="washroom-stat-value">${w.availableStalls}/${w.totalStalls}</div>
+          <div class="washroom-stat-label">Available</div>
+        </div>
+      </div>
+      <div class="occupancy-bar-container">
+        <div class="occupancy-bar-label">
+          <span>Occupancy</span>
+          <span>${occupancyPct}%</span>
+        </div>
+        <div class="occupancy-bar-track">
+          <div class="occupancy-bar-fill ${w.status}" style="width:${occupancyPct}%"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('washroom-timestamp').textContent = `Updated ${timeAgo(timestamp)}`;
+}
+
+function getStatusColor(status) {
+  const colors = { low: '#2ff801', moderate: '#81ecff', high: '#ff7350', critical: '#ff716c' };
+  return colors[status] || '#81ecff';
+}
+
+// ============================================================
+// FRIENDS
+// ============================================================
+
+document.getElementById('share-btn').addEventListener('click', async () => {
+  const name    = document.getElementById('friend-name').value.trim();
+  const zone    = document.getElementById('friend-zone').value.trim();
+  const section = document.getElementById('friend-section').value.trim();
+  const seat    = document.getElementById('friend-seat').value.trim();
+  const message = document.getElementById('friend-msg').value.trim();
+
+  if (!name) { showToast('Please enter your name'); return; }
+
+  try {
+    const res = await fetch(`${API}/api/friends/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, zone, section, seat, message }),
+    });
+    const data = await res.json();
+
+    document.getElementById('code-result').innerHTML = `
+      <div class="code-display">
+        <div class="code-display-label">Your Share Code</div>
+        <div class="code-value">${data.code}</div>
+        <div class="code-expires">Expires in ${data.expiresIn}</div>
+      </div>`;
+
+    showToast('Location shared! Send the code to friends.');
+  } catch (e) {
+    showToast('Failed to share location');
+  }
+});
+
+document.getElementById('find-btn').addEventListener('click', findFriend);
+document.getElementById('find-code-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') findFriend();
+});
+
+async function findFriend() {
+  const code = document.getElementById('find-code-input').value.trim();
+  if (!code || code.length < 6) { showToast('Enter a 6-character code'); return; }
+
+  try {
+    const res = await fetch(`${API}/api/friends/${code}`);
+    if (res.status === 404) {
+      document.getElementById('friend-result').innerHTML = `
+        <div class="error-msg">Code not found or expired. Ask your friend for a new code.</div>`;
+      return;
+    }
+    const data = await res.json();
+
+    let msgHtml = '';
+    if (data.message) {
+      msgHtml = `<div class="friend-message">${escapeForHtml(data.message)}</div>`;
+    }
+
+    document.getElementById('friend-result').innerHTML = `
+      <div class="friend-result">
+        <div class="friend-result-name">${escapeForHtml(data.name)}</div>
+        <div class="friend-detail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div>
+            <div class="friend-detail-label">Zone</div>
+            <div class="friend-detail-value">${escapeForHtml(data.zone)}</div>
+          </div>
+        </div>
+        <div class="friend-detail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <div>
+            <div class="friend-detail-label">Section</div>
+            <div class="friend-detail-value">${escapeForHtml(data.section)}</div>
+          </div>
+        </div>
+        <div class="friend-detail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+          <div>
+            <div class="friend-detail-label">Seat</div>
+            <div class="friend-detail-value">${escapeForHtml(data.seat)}</div>
+          </div>
+        </div>
+        ${msgHtml}
+        <div style="margin-top:12px;font-size:0.6875rem;color:var(--on-surface-variant)">
+          Last updated: ${timeAgo(data.lastUpdated)}
+        </div>
+      </div>`;
+  } catch (e) {
+    showToast('Failed to find friend');
+  }
+}
+
+function escapeForHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ============================================================
+// AUTO-REFRESH & INIT
+// ============================================================
+
+function refreshCurrentView() {
+  if (currentView === 'gates-view')     fetchGates();
+  if (currentView === 'food-view')      fetchFood();
+  if (currentView === 'washrooms-view') fetchWashrooms();
+}
+
+// Initial load
+fetchGates();
+
+// Auto-refresh every 8 seconds
+setInterval(refreshCurrentView, 8000);
+</script>
+</body>
+</html>
