@@ -1,6 +1,6 @@
 # 🏟️ CrowdSense — Smart Stadium Experience Platform
 
-> **Built for Google X Hackathon — Vision Z: Virtual Prompt Wars**
+> **Built for Google X Hack2Skill Virtual Prompt Wars**
 
 CrowdSense solves the worst parts of large-scale sporting events — chaotic gate entry, long food queues, overcrowded washrooms, and lost friends — through a real-time, AI-assisted progressive web app. Designed for distracted, moving users in harsh stadium lighting.
 
