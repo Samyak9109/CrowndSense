@@ -106,54 +106,6 @@
       <div class="last-updated" id="washroom-timestamp"></div>
     </section>
 
-    <!-- ──────── FRIENDS VIEW ──────── -->
-    <section id="friends-view" class="view">
-      <div class="view-header">
-        <h1 class="view-title">Find Friends</h1>
-        <p class="view-subtitle">Share your seat & find your crew</p>
-      </div>
-
-      <!-- Share Location -->
-      <div class="friends-section">
-        <div class="friends-section-title">Share Your Location</div>
-        <div class="share-form" id="share-form">
-          <div class="form-field">
-            <label class="form-label" for="friend-name">Your Name</label>
-            <input class="form-input" id="friend-name" type="text" placeholder="e.g. Samyak" maxlength="30">
-          </div>
-          <div class="form-row">
-            <div class="form-field">
-              <label class="form-label" for="friend-zone">Zone</label>
-              <input class="form-input" id="friend-zone" type="text" placeholder="e.g. North Stand" maxlength="30">
-            </div>
-            <div class="form-field">
-              <label class="form-label" for="friend-section">Section</label>
-              <input class="form-input" id="friend-section" type="text" placeholder="e.g. Section 204" maxlength="30">
-            </div>
-          </div>
-          <div class="form-field">
-            <label class="form-label" for="friend-seat">Seat</label>
-            <input class="form-input" id="friend-seat" type="text" placeholder="e.g. Row F, Seat 12" maxlength="30">
-          </div>
-          <div class="form-field">
-            <label class="form-label" for="friend-msg">Message (optional)</label>
-            <input class="form-input" id="friend-msg" type="text" placeholder="e.g. Near the burger stall!" maxlength="100">
-          </div>
-          <button class="btn-primary" id="share-btn" type="button">Share My Location</button>
-        </div>
-        <div id="code-result"></div>
-      </div>
-
-      <!-- Find Friend -->
-      <div class="friends-section">
-        <div class="friends-section-title">Find a Friend</div>
-        <div class="find-form">
-          <input class="form-input" id="find-code-input" type="text" placeholder="Enter 6-char code" maxlength="6">
-          <button class="btn-find" id="find-btn" type="button">Find</button>
-        </div>
-        <div id="friend-result"></div>
-      </div>
-    </section>
 
   </main>
 
@@ -170,10 +122,6 @@
     <button class="nav-btn" data-view="washrooms-view" id="nav-washrooms">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7h6V5a3 3 0 0 0-3-3z"/><path d="M6 12H4a1 1 0 0 0-1 1v2a4 4 0 0 0 4 4h1v3h8v-3h1a4 4 0 0 0 4-4v-2a1 1 0 0 0-1-1h-2"/><rect x="8" y="12" width="8" height="4" rx="1"/></svg>
       <span>WC</span>
-    </button>
-    <button class="nav-btn" data-view="friends-view" id="nav-friends">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <span>Friends</span>
     </button>
   </nav>
 </div>
@@ -564,102 +512,6 @@ function getStatusColor(status) {
   return colors[status] || '#81ecff';
 }
 
-// ============================================================
-// FRIENDS
-// ============================================================
-
-document.getElementById('share-btn').addEventListener('click', async () => {
-  const name    = document.getElementById('friend-name').value.trim();
-  const zone    = document.getElementById('friend-zone').value.trim();
-  const section = document.getElementById('friend-section').value.trim();
-  const seat    = document.getElementById('friend-seat').value.trim();
-  const message = document.getElementById('friend-msg').value.trim();
-
-  if (!name) { showToast('Please enter your name'); return; }
-
-  try {
-    const res = await fetch(`${API}/api/friends/share`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, zone, section, seat, message }),
-    });
-    const data = await res.json();
-
-    document.getElementById('code-result').innerHTML = `
-      <div class="code-display">
-        <div class="code-display-label">Your Share Code</div>
-        <div class="code-value">${data.code}</div>
-        <div class="code-expires">Expires in ${data.expiresIn}</div>
-      </div>`;
-
-    showToast('Location shared! Send the code to friends.');
-  } catch (e) {
-    showToast('Failed to share location');
-  }
-});
-
-document.getElementById('find-btn').addEventListener('click', findFriend);
-document.getElementById('find-code-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') findFriend();
-});
-
-async function findFriend() {
-  const code = document.getElementById('find-code-input').value.trim();
-  if (!code || code.length < 6) { showToast('Enter a 6-character code'); return; }
-
-  try {
-    const res = await fetch(`${API}/api/friends/${code}`);
-    if (res.status === 404) {
-      document.getElementById('friend-result').innerHTML = `
-        <div class="error-msg">Code not found or expired. Ask your friend for a new code.</div>`;
-      return;
-    }
-    const data = await res.json();
-
-    let msgHtml = '';
-    if (data.message) {
-      msgHtml = `<div class="friend-message">${escapeForHtml(data.message)}</div>`;
-    }
-
-    document.getElementById('friend-result').innerHTML = `
-      <div class="friend-result">
-        <div class="friend-result-name">${escapeForHtml(data.name)}</div>
-        <div class="friend-detail">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          <div>
-            <div class="friend-detail-label">Zone</div>
-            <div class="friend-detail-value">${escapeForHtml(data.zone)}</div>
-          </div>
-        </div>
-        <div class="friend-detail">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          <div>
-            <div class="friend-detail-label">Section</div>
-            <div class="friend-detail-value">${escapeForHtml(data.section)}</div>
-          </div>
-        </div>
-        <div class="friend-detail">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
-          <div>
-            <div class="friend-detail-label">Seat</div>
-            <div class="friend-detail-value">${escapeForHtml(data.seat)}</div>
-          </div>
-        </div>
-        ${msgHtml}
-        <div style="margin-top:12px;font-size:0.6875rem;color:var(--on-surface-variant)">
-          Last updated: ${timeAgo(data.lastUpdated)}
-        </div>
-      </div>`;
-  } catch (e) {
-    showToast('Failed to find friend');
-  }
-}
-
-function escapeForHtml(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
 
 // ============================================================
 // AUTO-REFRESH & INIT

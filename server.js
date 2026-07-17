@@ -1,11 +1,14 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-app.use(cors());
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -48,7 +51,6 @@ const washrooms = [
   { id: 'wash-6', name: 'West Stand — Level 2', zone: 'West', currentQueue: 18, totalStalls: 6, occupiedStalls: 6, status: 'high' },
 ];
 
-const friends = new Map(); // code -> { name, zone, section, seat, message, lastUpdated }
 
 // ============================================================
 // SIMULATION ENGINE — makes data feel alive
@@ -90,44 +92,7 @@ function fluctuate(val, min, max, delta) {
   return Math.min(max, Math.max(min, val + change));
 }
 
-function simulationTick() {
-  // Fluctuate gate queues
-  gates.forEach(gate => {
-    gate.currentQueue = fluctuate(gate.currentQueue, 0, 120, 8);
-    gate.openLanes = fluctuate(gate.openLanes, 1, 6, 1);
-    const wait = calculateGateWait(gate);
-    gate.estimatedWait = wait;
-    gate.status = getGateStatus(wait);
-  });
 
-  // Fluctuate food stalls
-  foodStalls.forEach(stall => {
-    stall.estimatedWait = fluctuate(stall.estimatedWait, 1, 25, 2);
-    stall.currentCrowd = getCrowdLevel(stall.estimatedWait);
-  });
-
-  // Fluctuate washrooms
-  washrooms.forEach(wr => {
-    wr.currentQueue = fluctuate(wr.currentQueue, 0, 35, 3);
-    wr.occupiedStalls = fluctuate(wr.occupiedStalls, 0, wr.totalStalls, 2);
-    wr.status = getWashroomStatus(wr);
-  });
-
-  // Clean up old friend codes (older than 2 hours)
-  const cutoff = Date.now() - 2 * 60 * 60 * 1000;
-  for (const [code, data] of friends) {
-    if (data.lastUpdated < cutoff) friends.delete(code);
-  }
-}
-
-// Initial calculation
-gates.forEach(gate => {
-  gate.estimatedWait = calculateGateWait(gate);
-  gate.status = getGateStatus(gate.estimatedWait);
-});
-
-// Run simulation every 10 seconds
-setInterval(simulationTick, 10000);
 
 // ============================================================
 // API ROUTES
@@ -135,10 +100,12 @@ setInterval(simulationTick, 10000);
 
 // --- Gates ---
 app.get('/api/gates', (req, res) => {
-  const gatesData = gates.map(g => ({
-    ...g,
-    estimatedWait: calculateGateWait(g),
-  }));
+  const gatesData = gates.map(g => {
+    const currentQueue = fluctuate(g.currentQueue, 0, 120, 15);
+    const openLanes = fluctuate(g.openLanes, 1, 6, 1);
+    const estimatedWait = Math.round((currentQueue / Math.max(openLanes, 1)) * g.avgProcessTime);
+    return { ...g, currentQueue, openLanes, estimatedWait, status: getGateStatus(estimatedWait) };
+  });
 
   // Find recommended gate (lowest estimated wait)
   const sorted = [...gatesData].sort((a, b) => a.estimatedWait - b.estimatedWait);
@@ -159,7 +126,10 @@ app.get('/api/gates', (req, res) => {
 // --- Food ---
 app.get('/api/food', (req, res) => {
   const { sort, zone } = req.query;
-  let data = [...foodStalls];
+  let data = foodStalls.map(s => {
+    const estimatedWait = fluctuate(s.estimatedWait, 1, 25, 5);
+    return { ...s, estimatedWait, currentCrowd: getCrowdLevel(estimatedWait) };
+  });
 
   if (zone && zone !== 'all') {
     data = data.filter(s => s.zone.toLowerCase().includes(zone.toLowerCase()));
@@ -195,55 +165,23 @@ app.post('/api/food/:id/rate', (req, res) => {
 
 // --- Washrooms ---
 app.get('/api/washrooms', (req, res) => {
-  const data = washrooms.map(wr => ({
-    ...wr,
-    estimatedWait: getWashroomWait(wr),
-    status: getWashroomStatus(wr),
-    availableStalls: wr.totalStalls - wr.occupiedStalls,
-  }));
+  const data = washrooms.map(wr => {
+    const currentQueue = fluctuate(wr.currentQueue, 0, 35, 5);
+    const occupiedStalls = fluctuate(wr.occupiedStalls, 0, wr.totalStalls, 2);
+    const sim = { ...wr, currentQueue, occupiedStalls };
+    const estimatedWait = getWashroomWait(sim);
+    return {
+      ...sim,
+      estimatedWait,
+      status: getWashroomStatus(sim),
+      availableStalls: wr.totalStalls - occupiedStalls,
+    };
+  });
 
   // Sort by estimated wait
   data.sort((a, b) => a.estimatedWait - b.estimatedWait);
 
   res.json({ washrooms: data, timestamp: new Date().toISOString() });
-});
-
-// --- Friends ---
-function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
-app.post('/api/friends/share', (req, res) => {
-  const { name, zone, section, seat, message } = req.body;
-  if (!name) return res.status(400).json({ error: 'Name is required' });
-
-  let code = generateCode();
-  while (friends.has(code)) code = generateCode();
-
-  friends.set(code, {
-    name,
-    zone: zone || 'Unknown',
-    section: section || 'Unknown',
-    seat: seat || 'Unknown',
-    message: message || '',
-    lastUpdated: Date.now(),
-  });
-
-  res.json({ code, expiresIn: '2 hours' });
-});
-
-app.get('/api/friends/:code', (req, res) => {
-  const { code } = req.params;
-  const friend = friends.get(code.toUpperCase());
-  if (!friend) return res.status(404).json({ error: 'Code not found or expired' });
-
-  res.json({
-    ...friend,
-    lastUpdated: new Date(friend.lastUpdated).toISOString(),
-  });
 });
 
 // --- Dashboard summary ---
@@ -257,7 +195,6 @@ app.get('/api/dashboard', (req, res) => {
     gateStats: { avgWait: avgGateWait, totalInQueue, gatesOpen: gates.length },
     foodStats: { avgWait: avgFoodWait, stallsOpen: foodStalls.length },
     washroomStats: { avgWait: avgWashroomWait, zones: washrooms.length },
-    activeFriendCodes: friends.size,
     timestamp: new Date().toISOString(),
   });
 });
